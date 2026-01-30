@@ -33,6 +33,21 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+// In development, allow common local development origins
+if (process.env.NODE_ENV !== 'production') {
+    const devOrigins = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://192.168.1.56:3000' // Common local network IP
+    ];
+    // Add any additional dev origins from env if specified
+    const additionalDevOrigins = (process.env.CORS_DEV_ORIGINS || '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+    allowedOrigins.push(...devOrigins, ...additionalDevOrigins);
+}
+
 if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
     logger.warn('CORS_ORIGINS is not set; all origins will be allowed.');
 }
@@ -44,14 +59,25 @@ app.use(helmet({
 }));
 app.use(cors({
     origin: allowedOrigins.length > 0 ? (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) {
             return callback(null, true);
+        }
+        // Check if origin is in allowed list
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        // In development, log rejected origins for debugging
+        if (process.env.NODE_ENV !== 'production') {
+            logger.warn(`CORS: Origin ${origin} not allowed. Allowed origins: ${allowedOrigins.join(', ')}`);
         }
         return callback(new Error('Not allowed by CORS'));
     } : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id', 'X-API-Key']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id', 'X-API-Key'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 app.use(cookieParser());
 app.use(express.json({ limit: process.env.REQUEST_BODY_LIMIT || '1mb' }));
