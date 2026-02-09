@@ -17,6 +17,7 @@ const subcollectionRoutes = require('./subcollectionRoutes');
 const firebaseCollectionRoutes = require('./firebaseCollectionRoutes');
 const firebaseUserRoutes = require('./firebaseUserRoutes');
 const firebaseDepositRequestRoutes = require('./firebaseDepositRequestRoutes');
+const adminLogsRoutes = require('./adminLogs');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -56,6 +57,9 @@ router.use('/firebase-deposit-requests', firebaseDepositRequestRoutes);
 
 // Firebase collection routes (mirrored root collections)
 router.use('/firebase-collections', firebaseCollectionRoutes);
+
+// Admin logs routes (admin_history_logs collection group)
+router.use('/admin-logs', adminLogsRoutes);
 
 module.exports = router;
 
