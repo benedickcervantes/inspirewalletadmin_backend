@@ -81,7 +81,7 @@ const matchesSearch = (user, searchTerm) => {
     return values.includes(normalized);
 };
 
-const applyFilters = (users, { search, status, kycStatus, agent }) => {
+const applyFilters = (users, { search, status, kycStatus, agent, isDummyAccount, accountType }) => {
     let filtered = users;
 
     if (status) {
@@ -96,6 +96,18 @@ const applyFilters = (users, { search, status, kycStatus, agent }) => {
 
     if (typeof agent === 'boolean') {
         filtered = filtered.filter((user) => Boolean(user.agent) === agent);
+    }
+
+    // Filter for demo accounts (isDummyAccount field)
+    if (isDummyAccount === 'true' || isDummyAccount === true) {
+        filtered = filtered.filter((user) => user.isDummyAccount === true);
+    } else if (isDummyAccount === 'false' || isDummyAccount === false) {
+        filtered = filtered.filter((user) => user.isDummyAccount !== true);
+    }
+
+    // Filter for test accounts (isTestAccount field)
+    if (accountType === 'test') {
+        filtered = filtered.filter((user) => user.isTestAccount === true);
     }
 
     if (search) {
@@ -155,6 +167,8 @@ class FirebaseUserController {
 
     async getAllUsers(req, res) {
         try {
+            console.log('📥 [FIREBASE USER CONTROLLER] Raw req.query:', req.query);
+            
             const {
                 page = 1,
                 limit = 20,
@@ -162,9 +176,15 @@ class FirebaseUserController {
                 status = '',
                 kycStatus = '',
                 agent,
+                isDummyAccount,
+                accountType,
                 sortBy = DEFAULT_SORT_BY,
                 sortOrder = 'desc'
             } = req.query;
+
+            console.log('📥 [FIREBASE USER CONTROLLER] Extracted params:', {
+                page, limit, search, status, kycStatus, agent, isDummyAccount, accountType, sortBy, sortOrder
+            });
 
             const db = getFirestore();
             const collectionRef = db.collection(USERS_COLLECTION);
@@ -172,12 +192,53 @@ class FirebaseUserController {
             const pageValue = Number.parseInt(page, 10) || 1;
             const limitValue = Number.parseInt(limit, 10) || 20;
             const skip = (pageValue - 1) * limitValue;
-            const hasFilters = Boolean(search || status || kycStatus || typeof agent === 'boolean');
+            
+            // Convert string booleans to actual booleans for proper filtering
+            const agentFilter = agent === 'true' ? true : agent === 'false' ? false : agent;
+            const isDummyAccountFilter = isDummyAccount === 'true' ? true : isDummyAccount === 'false' ? false : isDummyAccount;
+            
+            const hasFilters = Boolean(
+                search || 
+                status || 
+                kycStatus || 
+                typeof agentFilter === 'boolean' || 
+                typeof isDummyAccountFilter === 'boolean' || 
+                accountType
+            );
+
+            console.log('🔍 [FIREBASE USER CONTROLLER] hasFilters:', hasFilters, {
+                search: !!search,
+                status: !!status,
+                kycStatus: !!kycStatus,
+                agentFilter,
+                isDummyAccountFilter,
+                accountType
+            });
 
             if (hasFilters) {
                 const snapshot = await collectionRef.get();
                 const users = snapshot.docs.map(normalizeUserDoc);
-                const filteredUsers = applyFilters(users, { search, status, kycStatus, agent });
+                
+                console.log('📊 [FIREBASE USER CONTROLLER] Total users fetched:', users.length);
+                console.log('📊 [FIREBASE USER CONTROLLER] Sample user:', users[0] ? {
+                    userId: users[0].userId,
+                    firstName: users[0].firstName,
+                    isDummyAccount: users[0].isDummyAccount,
+                    isTestAccount: users[0].isTestAccount,
+                    agent: users[0].agent
+                } : 'No users');
+
+                const filteredUsers = applyFilters(users, { 
+                    search, 
+                    status, 
+                    kycStatus, 
+                    agent: agentFilter, 
+                    isDummyAccount: isDummyAccountFilter, 
+                    accountType 
+                });
+                
+                console.log('📊 [FIREBASE USER CONTROLLER] After filters:', filteredUsers.length);
+                
                 const sortedUsers = sortUsers(filteredUsers, sortBy, sortOrder);
                 const pagedUsers = sortedUsers.slice(skip, skip + limitValue);
                 const total = filteredUsers.length;

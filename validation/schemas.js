@@ -85,6 +85,8 @@ const userListQuerySchema = z.object({
     status: optionalTrimmed(40),
     kycStatus: optionalTrimmed(40),
     agent: z.preprocess(booleanQuery, z.boolean().optional()),
+    isDummyAccount: z.preprocess(booleanQuery, z.boolean().optional()),
+    accountType: optionalTrimmed(40),
     sortBy: z.enum(['createdAt', 'lastLogin', 'lastSignedIn', 'emailAddress', 'accountNumber']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional()
 });

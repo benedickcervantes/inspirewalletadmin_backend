@@ -41,9 +41,15 @@ class UserController {
                 status = '',
                 kycStatus = '',
                 agent,
+                isDummyAccount,
+                accountType,
                 sortBy = 'createdAt',
                 sortOrder = 'desc'
             } = req.query;
+
+            console.log('📥 [USER CONTROLLER] getAllUsers called with params:', {
+                page, limit, search, status, kycStatus, agent, isDummyAccount, accountType, sortBy, sortOrder
+            });
 
             // Build Firestore query with simple equality filters
             const filter = {};
@@ -52,9 +58,34 @@ class UserController {
             if (agent === true || agent === false) filter.agent = agent;
             if (agent === 'true') filter.agent = true;
             if (agent === 'false') filter.agent = false;
+            // Demo accounts are identified by isDummyAccount field
+            // Test accounts are identified by isTestAccount field
+            if (isDummyAccount === 'true') filter.isDummyAccount = true;
+            if (isDummyAccount === 'false') filter.isDummyAccount = false;
+            if (accountType === 'test') {
+                // For test accounts, we need to filter by isTestAccount field
+                // We'll do this in memory since we can't combine it with other filters easily
+            }
+
+            console.log('🔍 [USER CONTROLLER] Firestore filter:', filter);
 
             // Fetch all matching users from Firestore
             let users = await User.findMany(filter);
+
+            console.log('📊 [USER CONTROLLER] Fetched users count:', users.length);
+            console.log('📊 [USER CONTROLLER] Sample user (first):', users[0] ? {
+                userId: users[0].userId,
+                firstName: users[0].firstName,
+                isDummyAccount: users[0].isDummyAccount,
+                isTestAccount: users[0].isTestAccount,
+                agent: users[0].agent
+            } : 'No users found');
+
+            // Apply test account filter in memory if needed
+            if (accountType === 'test') {
+                users = users.filter(user => user.isTestAccount === true);
+                console.log('📊 [USER CONTROLLER] After test filter:', users.length);
+            }
 
             // Apply search filter in memory (Firestore doesn't support regex)
             if (search) {
