@@ -18,6 +18,7 @@ const firebaseCollectionRoutes = require('./firebaseCollectionRoutes');
 const firebaseUserRoutes = require('./firebaseUserRoutes');
 const firebaseDepositRequestRoutes = require('./firebaseDepositRequestRoutes');
 const adminLogsRoutes = require('./adminLogs');
+const taskWithdrawalsRoutes = require('./taskWithdrawals');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -60,6 +61,9 @@ router.use('/firebase-collections', firebaseCollectionRoutes);
 
 // Admin logs routes (admin_history_logs collection group)
 router.use('/admin-logs', adminLogsRoutes);
+
+// Task withdrawals routes (taskWithdrawRequest collection)
+router.use('/task-withdrawals', taskWithdrawalsRoutes);
 
 module.exports = router;
 
