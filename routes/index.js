@@ -19,6 +19,8 @@ const firebaseUserRoutes = require('./firebaseUserRoutes');
 const firebaseDepositRequestRoutes = require('./firebaseDepositRequestRoutes');
 const adminLogsRoutes = require('./adminLogs');
 const taskWithdrawalsRoutes = require('./taskWithdrawals');
+const settingsRoutes = require('./settingsRoutes');
+const adminProfileRoutes = require('./adminProfileRoutes');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -64,6 +66,12 @@ router.use('/admin-logs', adminLogsRoutes);
 
 // Task withdrawals routes (taskWithdrawRequest collection)
 router.use('/task-withdrawals', taskWithdrawalsRoutes);
+
+// Settings routes (maintenance, app settings, events, push notifications)
+router.use('/settings', settingsRoutes);
+
+// Admin profile routes (username, email, password, investment rates)
+router.use('/admin', adminProfileRoutes);
 
 module.exports = router;
 
