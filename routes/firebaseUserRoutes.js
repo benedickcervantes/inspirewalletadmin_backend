@@ -29,4 +29,12 @@ router.post(
     timeDepositController.create
 );
 
+// DELETE /api/firebase-users/:id - Delete Firebase user
+router.delete(
+    '/:id',
+    requireAdmin,
+    validateRequest({ params: userIdParamsSchema }),
+    firebaseUserController.deleteUser
+);
+
 module.exports = router;

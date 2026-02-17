@@ -40,4 +40,15 @@ router.get('/me', require('../middleware/authMiddleware').authenticateToken, (re
     next();
 }, adminAuthController.getProfile);
 
+/**
+ * @route POST /api/admin-auth/verify-password
+ * @desc Verify admin password for sensitive operations
+ * @access Protected (requires JWT)
+ */
+router.post('/verify-password', require('../middleware/authMiddleware').authenticateToken, (req, res, next) => {
+    // Map userId to adminId for admin routes
+    req.adminId = req.userId || req.user?.userId || req.user?.adminId;
+    next();
+}, adminAuthController.verifyPassword);
+
 module.exports = router;

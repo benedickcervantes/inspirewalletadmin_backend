@@ -390,6 +390,55 @@ class AdminAuthService {
             throw error;
         }
     }
+
+    /**
+     * Verify admin password using Firebase Authentication
+     * @param {string} email - Admin email
+     * @param {string} password - Password to verify
+     * @returns {Promise<boolean>} True if password is valid
+     */
+    async verifyPassword(email, password) {
+        try {
+            if (!email || !password) {
+                throw new Error('Email and password are required');
+            }
+
+            const normalizedEmail = email.toLowerCase().trim();
+            const firebaseApiKey = process.env.FIREBASE_API_KEY;
+
+            if (!firebaseApiKey) {
+                throw new Error('Firebase API Key not configured');
+            }
+
+            // Use Firebase REST API to verify credentials
+            const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
+
+            const response = await fetch(signInUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: normalizedEmail,
+                    password: password,
+                    returnSecureToken: true
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                console.error('Password verification failed:', data.error?.message);
+                return false;
+            }
+
+            console.log('✅ Password verified for admin:', normalizedEmail);
+            return true;
+        } catch (error) {
+            console.error('Password verification error:', error);
+            return false;
+        }
+    }
 }
 
 module.exports = new AdminAuthService();

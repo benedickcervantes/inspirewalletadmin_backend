@@ -69,10 +69,20 @@ app.use(cors({
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-        // In development, log rejected origins for debugging
+
+        // In development, allow any localhost/loopback (any port) and common LAN origins.
+        // This prevents CORS breakage when the frontend dev server falls back to an available port (e.g. 3004).
         if (process.env.NODE_ENV !== 'production') {
+            const localOriginRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+            const lanOriginRegex = /^https?:\/\/(172\.23\.176\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
+            if (localOriginRegex.test(origin) || lanOriginRegex.test(origin)) {
+                return callback(null, true);
+            }
+
             logger.warn(`CORS: Origin ${origin} not allowed. Allowed origins: ${allowedOrigins.join(', ')}`);
         }
+
         return callback(new Error('Not allowed by CORS'));
     } : true,
     credentials: true,
