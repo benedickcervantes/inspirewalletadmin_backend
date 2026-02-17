@@ -1,9 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const firebaseUserController = require('../controllers/firebaseUserController');
+const timeDepositController = require('../controllers/timeDepositController');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { requireAdmin } = require('../middleware/requireAdmin');
 const validateRequest = require('../middleware/validateRequest');
-const { userListQuerySchema, userIdParamsSchema } = require('../validation/schemas');
+const {
+    userListQuerySchema,
+    userIdParamsSchema,
+    timeDepositCreateBodySchema,
+    timeDepositCreateParamsSchema
+} = require('../validation/schemas');
 
 // All Firebase user routes require authentication
 router.use(authenticateToken);
@@ -13,5 +20,13 @@ router.get('/', validateRequest({ query: userListQuerySchema }), firebaseUserCon
 
 // GET /api/firebase-users/:id - Get Firebase user by ID
 router.get('/:id', validateRequest({ params: userIdParamsSchema }), firebaseUserController.getUserById);
+
+// POST /api/firebase-users/:id/time-deposits - Create user time deposit
+router.post(
+    '/:id/time-deposits',
+    requireAdmin,
+    validateRequest({ params: timeDepositCreateParamsSchema, body: timeDepositCreateBodySchema }),
+    timeDepositController.create
+);
 
 module.exports = router;
