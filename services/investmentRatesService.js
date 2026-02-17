@@ -2,7 +2,7 @@ const { getFirestore } = require('../config/firebase');
 const { normalizeTierTable } = require('../utils/timeDepositCalculator');
 
 const INVESTMENT_RATES_COLLECTION = 'investmentRates';
-const DEFAULT_RATES_DOC_ID = 'default';
+const DEFAULT_RATES_DOC_ID = process.env.INVESTMENT_RATES_DOC_ID || 'default';
 const REQUIRED_TERMS = ['sixMonths', 'oneYear', 'twoYears'];
 
 const normalizeRatesPayload = (payload = {}) => {

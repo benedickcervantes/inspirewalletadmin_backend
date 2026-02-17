@@ -20,6 +20,7 @@ const firebaseDepositRequestRoutes = require('./firebaseDepositRequestRoutes');
 const adminLogsRoutes = require('./adminLogs');
 const taskWithdrawalsRoutes = require('./taskWithdrawals');
 const timeDepositRoutes = require('./timeDepositRoutes');
+const investmentRatesRoutes = require('./investmentRatesRoutes');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -68,6 +69,9 @@ router.use('/task-withdrawals', taskWithdrawalsRoutes);
 
 // Time deposit routes (quote + shared admin-only helpers)
 router.use('/time-deposits', timeDepositRoutes);
+
+// Investment rates routes (manage rate tiers in Firestore)
+router.use('/investment-rates', investmentRatesRoutes);
 
 module.exports = router;
 

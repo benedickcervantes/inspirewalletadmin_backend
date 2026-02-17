@@ -237,6 +237,27 @@ const timeDepositCreateParamsSchema = z.object({
     id: trimmedString(1, 128)
 });
 
+// Investment rates schemas
+const rateTierSchema = z.record(
+    z.string().regex(/^\d+$/, 'Amount threshold must be a numeric string'),
+    z.number().finite().min(0, 'Rate must be a non-negative number')
+);
+
+const investmentRatesUpdateSchema = z.object({
+    sixMonths: rateTierSchema.optional(),
+    oneYear: rateTierSchema.optional(),
+    twoYears: rateTierSchema.optional(),
+    agentRates: rateTierSchema.optional()
+}).refine((data) => {
+    return data.sixMonths || data.oneYear || data.twoYears || data.agentRates;
+}, {
+    message: 'At least one rate tier (sixMonths, oneYear, twoYears, or agentRates) must be provided'
+});
+
+const docIdParamsSchema = z.object({
+    docId: trimmedString(1, 128)
+});
+
 module.exports = {
     registerSchema,
     loginSchema,
@@ -259,5 +280,7 @@ module.exports = {
     timeDepositReferralSchema,
     timeDepositQuoteBodySchema,
     timeDepositCreateBodySchema,
-    timeDepositCreateParamsSchema
+    timeDepositCreateParamsSchema,
+    investmentRatesUpdateSchema,
+    docIdParamsSchema
 };
