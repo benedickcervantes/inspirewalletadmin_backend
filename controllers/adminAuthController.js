@@ -2,7 +2,7 @@ const adminAuthService = require('../services/adminAuthService');
 
 /**
  * AdminAuthController - Handles HTTP requests for admin authentication
- * Uses Firebase Realtime Database /adminUsers path
+ * Uses Firestore adminUsers collection
  */
 class AdminAuthController {
     /**

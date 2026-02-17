@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * Admin Authentication Routes
- * Uses Firebase Realtime Database /adminUsers path
+ * Uses Firestore adminUsers collection
  */
 
 /**

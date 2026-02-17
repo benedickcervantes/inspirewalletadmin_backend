@@ -32,7 +32,7 @@ router.get('/health', (req, res) => {
 // Auth routes
 router.use('/auth', authRoutes);
 
-// Admin Auth routes (Firebase RTDB /adminUsers)
+// Admin Auth routes (Firestore adminUsers collection)
 router.use('/admin-auth', adminAuthRoutes);
 
 // Dashboard routes

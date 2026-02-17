@@ -37,7 +37,9 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
 if (process.env.NODE_ENV !== 'production') {
     const devOrigins = [
         'http://localhost:3000',
+        'http://localhost:3001',
         'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
         'http://192.168.1.56:3000' // Common local network IP
     ];
     // Add any additional dev origins from env if specified
