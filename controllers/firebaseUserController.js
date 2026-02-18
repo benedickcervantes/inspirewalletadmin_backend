@@ -329,6 +329,52 @@ class FirebaseUserController {
             });
         }
     }
+
+    /**
+     * Delete Firebase user by ID
+     * WARNING: This is a destructive operation that cannot be undone
+     * Requires admin authentication and password verification should be done client-side
+     */
+    async deleteUser(req, res) {
+        try {
+            const { id } = req.params;
+            const db = getFirestore();
+
+            // First, get the user to find the userId
+            const userDoc = await db.collection(USERS_COLLECTION).doc(id).get();
+
+            if (!userDoc.exists) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'User not found'
+                });
+            }
+
+            const userData = userDoc.data();
+            const userId = userData.userId || id;
+            const userEmail = userData.emailAddress;
+
+            // Delete the Firestore document
+            await db.collection(USERS_COLLECTION).doc(id).delete();
+
+            console.log(`✅ Deleted user: ${userId} (${userEmail || 'no email'})`);
+
+            res.json({
+                success: true,
+                message: 'User deleted successfully',
+                data: {
+                    deletedUserId: userId,
+                    deletedDocId: id
+                }
+            });
+        } catch (error) {
+            console.error('Controller error deleting Firebase user:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to delete user'
+            });
+        }
+    }
 }
 
 module.exports = new FirebaseUserController();
