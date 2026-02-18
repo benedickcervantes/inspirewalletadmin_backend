@@ -114,14 +114,14 @@ const userSubcollectionParamsSchema = z.object({
 
 const userSubcollectionQuerySchema = z.object({
     page: numericQuery(1, 100000),
-    limit: numericQuery(1, 200),
+    limit: numericQuery(1, 1000),
     sortBy: optionalTrimmed(60),
     sortOrder: z.enum(['asc', 'desc']).optional()
 });
 
 const subcollectionQuerySchema = z.object({
     page: numericQuery(1, 100000),
-    limit: numericQuery(1, 100),
+    limit: numericQuery(1, 1000),
     status: optionalTrimmed(40),
     sortBy: z.enum(['createdAt', 'date', 'applicationDate', 'travelDate', 'updatedAt', 'amount', 'submittedAt']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional()
@@ -133,7 +133,7 @@ const firebaseCollectionParamsSchema = z.object({
 
 const firebaseCollectionQuerySchema = z.object({
     page: numericQuery(1, 100000),
-    limit: numericQuery(1, 200),
+    limit: numericQuery(1, 1000),
     status: optionalTrimmed(40),
     sortBy: optionalTrimmed(60),
     sortOrder: z.enum(['asc', 'desc']).optional(),

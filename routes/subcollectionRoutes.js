@@ -20,6 +20,9 @@ router.get('/maya-applications', validateRequest({ query: subcollectionQuerySche
 // GET /api/subcollections/travel-applications
 router.get('/travel-applications', validateRequest({ query: subcollectionQuerySchema }), subcollectionController.getTravelApplications);
 
+// GET /api/subcollections/tasks
+router.get('/tasks', validateRequest({ query: subcollectionQuerySchema }), subcollectionController.getTasks);
+
 // GET /api/subcollections/withdrawals
 router.get('/withdrawals', validateRequest({ query: subcollectionQuerySchema }), subcollectionController.getWithdrawals);
 
