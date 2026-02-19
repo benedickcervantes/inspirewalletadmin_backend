@@ -7,6 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "node -e \"console.log('Build complete')\"",
+    "test": "node --test",
+    "seed:investment-rates": "node scripts/seedInvestmentRates.js",
     "migrate:rtdb-users": "node scripts/migrateRealtimeUsers.js"
   },
   "keywords": ["express", "api", "backend"],

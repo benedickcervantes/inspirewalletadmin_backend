@@ -36,7 +36,7 @@ router.get('/health', (req, res) => {
 // Auth routes
 router.use('/auth', authRoutes);
 
-// Admin Auth routes (Firebase RTDB /adminUsers)
+// Admin Auth routes (Firestore adminUsers collection)
 router.use('/admin-auth', adminAuthRoutes);
 
 // Dashboard routes
@@ -69,11 +69,11 @@ router.use('/admin-logs', adminLogsRoutes);
 // Task withdrawals routes (taskWithdrawRequest collection)
 router.use('/task-withdrawals', taskWithdrawalsRoutes);
 
-// Settings routes (maintenance, app settings, events, push notifications)
-router.use('/settings', settingsRoutes);
+// Time deposit routes (quote + shared admin-only helpers)
+router.use('/time-deposits', timeDepositRoutes);
 
-// Admin profile routes (username, email, password, investment rates)
-router.use('/admin', adminProfileRoutes);
+// Investment rates routes (manage rate tiers in Firestore)
+router.use('/investment-rates', investmentRatesRoutes);
 
 // Agent hierarchy routes (agent upline/downline structure)
 router.use('/agent-hierarchy', agentHierarchyRoutes);

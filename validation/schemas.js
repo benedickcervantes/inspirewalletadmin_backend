@@ -127,6 +127,18 @@ const subcollectionQuerySchema = z.object({
     sortOrder: z.enum(['asc', 'desc']).optional()
 });
 
+const firebaseDepositRequestQuerySchema = z.object({
+    page: numericQuery(1, 100000),
+    limit: numericQuery(1, 1000),
+    status: optionalTrimmed(40),
+    paymentMethod: optionalTrimmed(60),
+    search: optionalTrimmed(120),
+    dateFrom: z.string().trim().max(64).optional(),
+    dateTo: z.string().trim().max(64).optional(),
+    sortBy: z.enum(['createdAt', 'date', 'updatedAt', 'amount', 'processedAt']).optional(),
+    sortOrder: z.enum(['asc', 'desc']).optional()
+});
+
 const firebaseCollectionParamsSchema = z.object({
     collection: z.string().trim().regex(/^[a-zA-Z0-9_-]+$/)
 });
@@ -159,6 +171,105 @@ const agentCodeParamsSchema = z.object({
     agentCode: agentCodeValue
 });
 
+const parseNumericInput = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        const trimmed = value.trim().replace(/,/g, '');
+        if (!trimmed) return undefined;
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? parsed : value;
+    }
+    return value;
+};
+
+const numericInputSchema = z.preprocess(
+    parseNumericInput,
+    z.number().finite()
+);
+
+const nonNegativeNumericSchema = z.preprocess(
+    parseNumericInput,
+    z.number().finite().min(0)
+);
+
+const positiveNumericSchema = z.preprocess(
+    parseNumericInput,
+    z.number().finite().positive()
+);
+
+const percentageNumericSchema = z.preprocess(
+    parseNumericInput,
+    z.number().finite().min(0).max(100)
+);
+
+const timeDepositTermSchema = z.enum(['sixMonths', 'oneYear', 'twoYears']);
+
+const validDateStringSchema = z
+    .string()
+    .trim()
+    .min(1, 'Initial date is required')
+    .refine((value) => !Number.isNaN(Date.parse(value)), 'Initial date must be a valid date')
+    .refine((value) => {
+        const selectedDate = new Date(value);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        return selectedDate.getTime() <= endOfToday.getTime();
+    }, 'Initial date cannot be in the future');
+
+const timeDepositReferralSchema = z.object({
+    referrerUserId: trimmedString(1, 128),
+    commissionPercentage: percentageNumericSchema.optional(),
+    mode: z.enum(['manual', 'hierarchy']).optional()
+});
+
+const timeDepositContractSchema = z.object({
+    enabled: z.boolean().optional(),
+    strict: z.boolean().optional()
+}).optional();
+
+const timeDepositQuoteBodySchema = z.object({
+    amount: nonNegativeNumericSchema,
+    term: timeDepositTermSchema,
+    initialDate: validDateStringSchema.optional(),
+    finalInterestRate: nonNegativeNumericSchema.optional(),
+    referral: timeDepositReferralSchema.optional()
+});
+
+const timeDepositCreateBodySchema = z.object({
+    amount: positiveNumericSchema,
+    term: timeDepositTermSchema,
+    initialDate: validDateStringSchema,
+    finalInterestRate: nonNegativeNumericSchema.optional(),
+    referral: timeDepositReferralSchema.optional(),
+    contract: timeDepositContractSchema
+});
+
+const timeDepositCreateParamsSchema = z.object({
+    id: trimmedString(1, 128)
+});
+
+// Investment rates schemas
+const rateTierSchema = z.record(
+    z.string().regex(/^\d+$/, 'Amount threshold must be a numeric string'),
+    z.number().finite().min(0, 'Rate must be a non-negative number')
+);
+
+const investmentRatesUpdateSchema = z.object({
+    sixMonths: rateTierSchema.optional(),
+    oneYear: rateTierSchema.optional(),
+    twoYears: rateTierSchema.optional(),
+    agentRates: rateTierSchema.optional()
+}).refine((data) => {
+    return data.sixMonths || data.oneYear || data.twoYears || data.agentRates;
+}, {
+    message: 'At least one rate tier (sixMonths, oneYear, twoYears, or agentRates) must be provided'
+});
+
+const docIdParamsSchema = z.object({
+    docId: trimmedString(1, 128)
+});
+
 module.exports = {
     registerSchema,
     loginSchema,
@@ -173,8 +284,16 @@ module.exports = {
     userSubcollectionParamsSchema,
     userSubcollectionQuerySchema,
     subcollectionQuerySchema,
+    firebaseDepositRequestQuerySchema,
     firebaseCollectionParamsSchema,
     firebaseCollectionQuerySchema,
     agentGenerateSchema,
-    agentCodeParamsSchema
+    agentCodeParamsSchema,
+    timeDepositTermSchema,
+    timeDepositReferralSchema,
+    timeDepositQuoteBodySchema,
+    timeDepositCreateBodySchema,
+    timeDepositCreateParamsSchema,
+    investmentRatesUpdateSchema,
+    docIdParamsSchema
 };

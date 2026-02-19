@@ -88,13 +88,16 @@ const splitName = (name) => {
 };
 
 const buildUserFallback = (data, userId) => {
-    const { firstName: splitFirst, lastName: splitLast } = splitName(data.Name || data.name);
+    const nameSource = data.Name || data.name || data.userName || '';
+    const { firstName: splitFirst, lastName: splitLast } = splitName(nameSource);
+    const emailSource = data.emailAddress || data.userEmail || data.email;
     return {
         odId: userId,
         oderId: userId,
         firstName: data.firstName || splitFirst,
         lastName: data.lastName || splitLast,
-        emailAddress: data.emailAddress,
+        userName: data.userName,
+        emailAddress: emailSource,
         accountNumber: data.accountNumber
     };
 };
@@ -132,6 +135,58 @@ const sortDeposits = (items, sortBy, sortOrder) => {
     });
 };
 
+const parseDateMs = (iso) => {
+    if (!iso || typeof iso !== 'string') return null;
+    const ms = Date.parse(iso.trim());
+    return Number.isNaN(ms) ? null : ms;
+};
+
+const applyFilters = (items, filters) => {
+    const {
+        status,
+        paymentMethod,
+        search,
+        dateFrom,
+        dateTo
+    } = filters;
+
+    return items.filter((item) => {
+        if (status) {
+            const s = (item.status || '').toLowerCase();
+            if (s !== status.toLowerCase()) return false;
+        }
+        if (paymentMethod) {
+            const pm = (item.paymentMethod || '').toLowerCase();
+            if (pm !== paymentMethod.toLowerCase()) return false;
+        }
+        const createdMs = getTimestampMs(item.createdAt);
+        if (dateFrom) {
+            const fromMs = parseDateMs(dateFrom);
+            if (fromMs !== null && (createdMs === null || createdMs < fromMs)) return false;
+        }
+        if (dateTo) {
+            const toMs = parseDateMs(dateTo);
+            if (toMs !== null && (createdMs === null || createdMs > toMs)) return false;
+        }
+        if (search) {
+            const term = search.toLowerCase().trim();
+            const email = (item.user?.emailAddress || '').toLowerCase();
+            const fullName = [item.user?.firstName, item.user?.lastName].filter(Boolean).join(' ').toLowerCase();
+            const ref = (item.referenceNumber || '').toLowerCase();
+            const docId = (item._firebaseDocId || '').toLowerCase();
+            const match = email.includes(term) || fullName.includes(term) || ref.includes(term) || docId.includes(term);
+            if (!match) return false;
+        }
+        return true;
+    });
+};
+
+const formatAmountWithSeparators = (num) => {
+    if (num === null || num === undefined || Number.isNaN(num)) return '0';
+    const n = Number(num);
+    return Math.round(n).toLocaleString('en-US');
+};
+
 class FirebaseDepositRequestService {
     constructor() {
         this.collectionGroupName = COLLECTION_GROUP;
@@ -164,24 +219,18 @@ class FirebaseDepositRequestService {
     }
 
     buildUserPayload(userDoc, fallback, userId) {
-        if (userDoc) {
-            return {
-                odId: userDoc._id,
-                oderId: userDoc.userId || userDoc._id,
-                firstName: userDoc.firstName || fallback.firstName,
-                lastName: userDoc.lastName || fallback.lastName,
-                emailAddress: userDoc.emailAddress || fallback.emailAddress,
-                accountNumber: userDoc.accountNumber || fallback.accountNumber
-            };
-        }
-
+        const first = userDoc?.firstName ?? fallback.firstName;
+        const last = userDoc?.lastName ?? fallback.lastName;
+        const name = [first, last].filter(Boolean).join(' ') || userDoc?.userName || fallback.userName || '';
+        const emailAddress = userDoc?.emailAddress ?? fallback.emailAddress;
         return {
-            odId: fallback.odId || userId,
-            oderId: fallback.oderId || userId,
-            firstName: fallback.firstName,
-            lastName: fallback.lastName,
-            emailAddress: fallback.emailAddress,
-            accountNumber: fallback.accountNumber
+            odId: userDoc?._id ?? fallback.odId ?? userId,
+            oderId: userDoc?.userId ?? userDoc?._id ?? fallback.oderId ?? userId,
+            firstName: first,
+            lastName: last,
+            name,
+            emailAddress: emailAddress ?? undefined,
+            accountNumber: userDoc?.accountNumber ?? fallback.accountNumber
         };
     }
 
@@ -190,19 +239,31 @@ class FirebaseDepositRequestService {
         const normalizedUserId = resolveUserId(data, doc) || userId;
         const fallbackUser = buildUserFallback(data, normalizedUserId);
         const amountValue = parseNumber(data.amount);
+        const paymentMethod = resolvePaymentMethod(data);
+        const createdAt = resolveCreatedAt(data, doc);
+        const user = this.buildUserPayload(userDoc, fallbackUser, normalizedUserId);
 
         return {
-            ...data,
             _firebaseDocId: doc.id,
             userId: normalizedUserId,
+            user: {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                emailAddress: user.emailAddress,
+                odId: user.odId,
+                accountNumber: user.accountNumber
+            },
+            amount: amountValue !== undefined ? amountValue : data.amount,
+            status: data.status,
+            paymentMethod,
             referenceNumber: resolveReferenceNumber(data, doc.id),
-            paymentMethod: resolvePaymentMethod(data),
-            createdAt: resolveCreatedAt(data, doc),
+            createdAt,
             processedAt: resolveProcessedAt(data),
             notes: data.notes || data.note,
-            proofUrl: resolveProofUrl(data),
-            amount: amountValue !== undefined ? amountValue : data.amount,
-            user: this.buildUserPayload(userDoc, fallbackUser, normalizedUserId)
+            type: data.type,
+            maturityDate: toIsoString(data.maturityDate) ?? data.maturityDate,
+            contractPeriod: data.contractPeriod,
+            proofUrl: resolveProofUrl(data)
         };
     }
 
@@ -249,7 +310,11 @@ class FirebaseDepositRequestService {
         const {
             page = 1,
             limit = 20,
-            status = '',
+            status,
+            paymentMethod,
+            search,
+            dateFrom,
+            dateTo,
             sortBy = this.defaultSortBy,
             sortOrder = this.defaultSortOrder
         } = params;
@@ -260,59 +325,13 @@ class FirebaseDepositRequestService {
 
         const db = getFirestore();
         const collectionGroup = this.getCollectionGroup(db);
-        const hasFilter = Boolean(status);
-
-        if (hasFilter) {
-            const snapshot = await collectionGroup.get();
-            const items = await this.mapDeposits(snapshot.docs);
-            const filtered = status
-                ? items.filter((item) => (item.status || '').toLowerCase() === status.toLowerCase())
-                : items;
-            const sorted = sortDeposits(filtered, sortBy, sortOrder);
-            const paged = sorted.slice(skip, skip + limitValue);
-            const total = filtered.length;
-
-            return {
-                items: paged,
-                pagination: {
-                    total,
-                    page: pageValue,
-                    limit: limitValue,
-                    totalPages: Math.ceil(total / limitValue) || 1
-                }
-            };
-        }
-
-        let query = collectionGroup.orderBy(sortBy, sortOrder === 'asc' ? 'asc' : 'desc');
-        if (skip > 0) {
-            query = query.offset(skip);
-        }
-
-        let snapshot;
-        let total;
-        try {
-            total = await this.getTotalCount(collectionGroup);
-            snapshot = await query.limit(limitValue).get();
-        } catch (error) {
-            console.warn('Firebase deposit request query failed, falling back to in-memory sort:', error.message);
-            const allSnapshot = await collectionGroup.get();
-            const items = await this.mapDeposits(allSnapshot.docs);
-            const sorted = sortDeposits(items, sortBy, sortOrder);
-            const paged = sorted.slice(skip, skip + limitValue);
-            total = items.length;
-
-            return {
-                items: paged,
-                pagination: {
-                    total,
-                    page: pageValue,
-                    limit: limitValue,
-                    totalPages: Math.ceil(total / limitValue) || 1
-                }
-            };
-        }
-
-        const items = await this.mapDeposits(snapshot.docs);
+        const snapshot = await collectionGroup.get();
+        const allItems = await this.mapDeposits(snapshot.docs);
+        const filters = { status, paymentMethod, search, dateFrom, dateTo };
+        const filtered = applyFilters(allItems, filters);
+        const total = filtered.length;
+        const sorted = sortDeposits(filtered, sortBy, sortOrder);
+        const items = sorted.slice(skip, skip + limitValue);
 
         return {
             items,
@@ -322,6 +341,29 @@ class FirebaseDepositRequestService {
                 limit: limitValue,
                 totalPages: Math.ceil(total / limitValue) || 1
             }
+        };
+    }
+
+    async getDepositRequestStats() {
+        const db = getFirestore();
+        const collectionGroup = this.getCollectionGroup(db);
+        const snapshot = await collectionGroup.get();
+        const items = await this.mapDeposits(snapshot.docs);
+
+        const total = items.length;
+        const pending = items.filter((item) => (item.status || '').toLowerCase() === 'pending').length;
+        const approved = items.filter((item) => (item.status || '').toLowerCase() === 'approved').length;
+        const approvedOrCompleted = items.filter((item) => {
+            const s = (item.status || '').toLowerCase();
+            return s === 'approved' || s === 'completed';
+        });
+        const totalAmount = approvedOrCompleted.reduce((sum, item) => sum + (parseNumber(item.amount) || 0), 0);
+
+        return {
+            total,
+            pending,
+            approved,
+            totalAmount: formatAmountWithSeparators(totalAmount)
         };
     }
 }

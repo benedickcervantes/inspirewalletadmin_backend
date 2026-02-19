@@ -2,7 +2,7 @@ const adminAuthService = require('../services/adminAuthService');
 
 /**
  * AdminAuthController - Handles HTTP requests for admin authentication
- * Uses Firebase Realtime Database /adminUsers path
+ * Uses Firestore adminUsers collection
  */
 class AdminAuthController {
     /**
@@ -247,6 +247,61 @@ class AdminAuthController {
             res.status(500).json({
                 success: false,
                 error: error.message || 'Failed to get admin profile'
+            });
+        }
+    };
+
+    /**
+     * Verify admin password for sensitive operations
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     */
+    verifyPassword = async (req, res) => {
+        try {
+            const { password } = req.body;
+            const adminId = req.adminId || req.user?.adminId;
+            const adminEmail = req.user?.email;
+
+            if (!adminId || !adminEmail) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Admin authentication required'
+                });
+            }
+
+            if (!password) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Password is required'
+                });
+            }
+
+            const isValid = await adminAuthService.verifyPassword(adminEmail, password);
+
+            if (!isValid) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Invalid password'
+                });
+            }
+
+            res.json({
+                success: true,
+                message: 'Password verified successfully'
+            });
+        } catch (error) {
+            console.error('Password verification error:', error);
+
+            if (error.message.includes('Invalid')) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Invalid password'
+                });
+            }
+
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Password verification failed'
             });
         }
     };
