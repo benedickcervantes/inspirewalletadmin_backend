@@ -19,8 +19,10 @@ const firebaseUserRoutes = require('./firebaseUserRoutes');
 const firebaseDepositRequestRoutes = require('./firebaseDepositRequestRoutes');
 const adminLogsRoutes = require('./adminLogs');
 const taskWithdrawalsRoutes = require('./taskWithdrawals');
-const timeDepositRoutes = require('./timeDepositRoutes');
-const investmentRatesRoutes = require('./investmentRatesRoutes');
+const settingsRoutes = require('./settingsRoutes');
+const adminProfileRoutes = require('./adminProfileRoutes');
+const agentHierarchyRoutes = require('./agentHierarchyRoutes');
+const ticketRoutes = require('./ticketRoutes');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -72,6 +74,12 @@ router.use('/time-deposits', timeDepositRoutes);
 
 // Investment rates routes (manage rate tiers in Firestore)
 router.use('/investment-rates', investmentRatesRoutes);
+
+// Agent hierarchy routes (agent upline/downline structure)
+router.use('/agent-hierarchy', agentHierarchyRoutes);
+
+// Ticket routes (support ticketing system)
+router.use('/tickets', ticketRoutes);
 
 module.exports = router;
 

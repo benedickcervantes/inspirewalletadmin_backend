@@ -2,6 +2,114 @@
 
 ## Recent Changes
 
+### Ticketing Support System (V2)
+
+#### Added Features
+1. **Backend Implementation**
+   - Created `ticketController.js` with full CRUD operations
+   - Endpoints: GET tickets (with filters), GET by ID, assign, update, add message, delete
+   - Support for pending and assigned ticket separation
+   - Role-based access: regular admins see only their tickets, superadmins see all
+   - Filtering by status, priority, category, assignedTo, search
+   - Pagination support (20 tickets per page)
+   - Real-time stats calculation
+
+2. **API Routes**
+   - Created `ticketRoutes.js` with authentication middleware
+   - Routes: GET /api/tickets, GET /api/tickets/:id, POST /api/tickets/:id/assign, 
+     PUT /api/tickets/:id, POST /api/tickets/:id/messages, DELETE /api/tickets/:id
+   - Registered in main routes index
+
+3. **Frontend Implementation (V2)**
+   - Created TypeScript API client `lib/api/tickets.ts`
+   - Main tickets page with state management
+   - Components:
+     - `TicketHeader.tsx` - Stats cards with animated counters, view mode toggle, refresh button
+     - `PendingTickets.tsx` - Grid of available tickets to claim with "Take Ticket" action
+     - `AssignedTickets.tsx` - Tabbed view (All/Open/In Progress/Resolved) with pagination
+     - `TicketCard.tsx` - Individual ticket card with priority, status, customer info
+     - `TicketDetailDrawer.tsx` - Full ticket details with conversation, notes, resolution
+   - Features:
+     - Real-time ticket assignment
+     - Status and priority updates
+     - Message/conversation system
+     - Internal notes (admin only)
+     - Ticket resolution workflow
+     - Responsive grid layouts
+     - Motion animations
+
+4. **Data Structure**
+   - Tickets stored in: `/users/{userId}/tickets/{ticketId}`
+   - Fields: title, description, status, priority, category, assignedTo, createdAt, 
+     updatedAt, customerName, customerEmail, messages, notes, resolution, resolvedAt
+   - Status values: pending, open, in-progress, resolved, closed
+   - Priority values: low, medium, high
+
+5. **Design System Integration**
+   - Uses rsuite components (Panel, Nav, Tag, Button, Drawer, SelectPicker)
+   - CSS variables for theming
+   - Motion animations for smooth transitions
+   - Responsive layouts
+   - Color-coded priority and status tags
+
+#### Modified Files
+- `inspirewalletadmin_backend/controllers/ticketController.js` (created)
+- `inspirewalletadmin_backend/routes/ticketRoutes.js` (created)
+- `inspirewalletadmin_backend/routes/index.js` (updated)
+- `inspireadmin2/lib/api/tickets.ts` (created)
+- `inspireadmin2/app/(dashboard)/tickets/page.tsx` (created)
+- `inspireadmin2/app/(dashboard)/tickets/_components/TicketHeader.tsx` (created)
+- `inspireadmin2/app/(dashboard)/tickets/_components/PendingTickets.tsx` (created)
+- `inspireadmin2/app/(dashboard)/tickets/_components/AssignedTickets.tsx` (created)
+- `inspireadmin2/app/(dashboard)/tickets/_components/TicketCard.tsx` (created)
+- `inspireadmin2/app/(dashboard)/tickets/_components/TicketDetailDrawer.tsx` (created)
+
+---
+
+### Agent Hierarchy Feature (V2)
+
+#### Added Features
+1. **Backend Implementation**
+   - Created `agentHierarchyController.js` with methods to parse agent codes and build hierarchy
+   - Implemented `getAgentHierarchyByNumber` endpoint to fetch agent upline/downline structure
+   - Agent code parsing: Format `XXXXX-YYYYY-ZZZZZ` (Master-Agent-SubAgent)
+   - Upline detection: Finds master agent and direct agent from code
+   - Downline detection: Finds all agents with this agent in their code chain
+   - Returns complete hierarchy with statistics
+
+2. **API Routes**
+   - Created `agentHierarchyRoutes.js` with authentication middleware
+   - Endpoint: `GET /api/agent-hierarchy/number/:agentNumber`
+   - Registered routes in main routes index
+
+3. **Frontend Implementation (V2)**
+   - Created TypeScript API client `lib/api/agentHierarchy.ts`
+   - Implemented full-featured agent hierarchy page with rsuite components
+   - Features:
+     - Search by agent number with real-time validation
+     - Summary statistics (total agents, upline count, downline count)
+     - Three-tier display: Upline → Current Agent → Downline
+     - Expandable/collapsible downline tree view
+     - Color-coded agent cards (purple for current, amber for upline, slate for downline)
+     - Responsive design with motion animations
+     - Empty states and error handling
+   - Matches V2 design system with CSS variables and rsuite components
+
+4. **Data Structure**
+   - Agent hierarchy includes: userId, name, email, agentNumber, agentCode
+   - Upline structure: masterAgent and direct agent
+   - Downline: Array of agents under current agent
+   - Statistics: uplineCount, downlineCount, uniqueUplineCount, uniqueDownlineCount
+
+#### Modified Files
+- `inspirewalletadmin_backend/controllers/agentHierarchyController.js` (created)
+- `inspirewalletadmin_backend/routes/agentHierarchyRoutes.js` (created)
+- `inspirewalletadmin_backend/routes/index.js` (updated)
+- `inspireadmin2/lib/api/agentHierarchy.ts` (created)
+- `inspireadmin2/app/(dashboard)/agent-hierarchy/page.tsx` (implemented)
+
+---
+
 ### Maya/E-Wallet Dashboard Enhancements
 
 #### Added Features
