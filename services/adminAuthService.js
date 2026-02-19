@@ -1,11 +1,11 @@
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { getFirebaseAdmin } = require('../config/firebase');
+const { getFirebaseAdmin, getFirestore } = require('../config/firebase');
 
 /**
- * AdminAuthService - Handles authentication for admin users via Firebase Realtime Database
- * Uses the /adminUsers path in Firebase RTDB
+ * AdminAuthService - Handles authentication for admin users via Firebase Firestore
+ * Uses the adminUsers/{uid} collection in Firestore
  */
 class AdminAuthService {
     constructor() {
@@ -27,34 +27,23 @@ class AdminAuthService {
     }
 
     /**
-     * Get Firebase Realtime Database reference
-     * @returns {admin.database.Database}
-     */
-    getDatabase() {
-        const app = getFirebaseAdmin();
-        if (!app) {
-            throw new Error('Firebase Admin SDK not initialized');
-        }
-        return admin.database();
-    }
-
-    /**
-     * Get admin user by ID from Firebase RTDB
+     * Get admin user by ID from Firestore
      * @param {string} adminId - Firebase UID / Admin ID
      * @returns {Promise<Object|null>} Admin user data
      */
     async getAdminById(adminId) {
         try {
-            const db = this.getDatabase();
-            const snapshot = await db.ref(`adminUsers/${adminId}`).once('value');
+            const db = getFirestore();
+            const docRef = db.collection('adminUsers').doc(adminId);
+            const doc = await docRef.get();
 
-            if (!snapshot.exists()) {
+            if (!doc.exists) {
                 return null;
             }
 
             return {
-                id: adminId,
-                ...snapshot.val()
+                id: doc.id,
+                ...doc.data()
             };
         } catch (error) {
             console.error('Error fetching admin by ID:', error);
@@ -63,30 +52,28 @@ class AdminAuthService {
     }
 
     /**
-     * Get admin user by email from Firebase RTDB
+     * Get admin user by email from Firestore
      * @param {string} email - Email address
      * @returns {Promise<Object|null>} Admin user data with ID
      */
     async getAdminByEmail(email) {
         try {
-            const db = this.getDatabase();
-            const snapshot = await db.ref('adminUsers').orderByChild('email').equalTo(email.toLowerCase().trim()).once('value');
+            const db = getFirestore();
+            const normalizedEmail = email.toLowerCase().trim();
+            const snapshot = await db.collection('adminUsers')
+                .where('email', '==', normalizedEmail)
+                .limit(1)
+                .get();
 
-            if (!snapshot.exists()) {
+            if (snapshot.empty) {
                 return null;
             }
 
-            // Get the first matching admin
-            let adminData = null;
-            snapshot.forEach((childSnapshot) => {
-                adminData = {
-                    id: childSnapshot.key,
-                    ...childSnapshot.val()
-                };
-                return true; // Stop after first match
-            });
-
-            return adminData;
+            const doc = snapshot.docs[0];
+            return {
+                id: doc.id,
+                ...doc.data()
+            };
         } catch (error) {
             console.error('Error fetching admin by email:', error);
             throw error;
@@ -110,7 +97,7 @@ class AdminAuthService {
             const uid = decodedToken.uid;
             const email = decodedToken.email;
 
-            // Check if user exists in adminUsers collection
+            // Check if user exists in adminUsers Firestore collection
             let adminUser = await this.getAdminById(uid);
 
             // If not found by UID, try by email
@@ -122,8 +109,11 @@ class AdminAuthService {
                 throw new Error('User is not an admin');
             }
 
-            // Check if admin has proper role
-            if (adminUser.role !== 'admin' && adminUser.role !== 'superadmin') {
+            // Check if admin has proper role or specialrole
+            const hasAdminRole = adminUser.role === 'admin' || adminUser.role === 'superadmin';
+            const hasSpecialRole = adminUser.specialrole === 'superadmin';
+            
+            if (!hasAdminRole && !hasSpecialRole) {
                 throw new Error('Insufficient admin privileges');
             }
 
@@ -149,9 +139,11 @@ class AdminAuthService {
             // Verify token and get admin data
             const adminUser = await this.verifyAdminToken(firebaseIdToken);
 
-            // Update last signed in timestamp
-            const db = this.getDatabase();
-            await db.ref(`adminUsers/${adminUser.id}/lastSignedIn`).set(admin.database.ServerValue.TIMESTAMP);
+            // Update last signed in timestamp in Firestore
+            const db = getFirestore();
+            await db.collection('adminUsers').doc(adminUser.id).update({
+                lastSignedIn: admin.firestore.FieldValue.serverTimestamp()
+            });
 
             // Generate JWT for session management
             const token = this.generateToken({
@@ -168,6 +160,7 @@ class AdminAuthService {
                     email: adminUser.email,
                     name: adminUser.name,
                     role: adminUser.role,
+                    specialrole: adminUser.specialrole,
                     assignedUsersCount: adminUser.assignedUsersCount || 0,
                     createdAt: adminUser.createdAt
                 },
@@ -182,7 +175,7 @@ class AdminAuthService {
     /**
      * Login admin with email/password via Firebase Authentication REST API
      * This performs server-side password verification using Firebase's signInWithPassword endpoint
-     * Then checks/creates admin record in Firebase RTDB /adminUsers
+     * Then checks admin record in Firestore adminUsers collection (does NOT auto-create)
      * @param {string} email - Admin email
      * @param {string} password - Admin password
      * @returns {Promise<Object>} Login result
@@ -195,7 +188,7 @@ class AdminAuthService {
 
             const normalizedEmail = email.toLowerCase().trim();
 
-            // Verify password using Firebase REST API FIRST
+            // Verify password using Firebase REST API
             const firebaseApiKey = process.env.FIREBASE_API_KEY;
 
             if (!firebaseApiKey) {
@@ -238,9 +231,8 @@ class AdminAuthService {
 
             // Get the Firebase UID from the auth response
             const firebaseUid = firebaseAuthData.localId;
-            const displayName = firebaseAuthData.displayName || '';
 
-            // Check if admin exists in RTDB
+            // Check if admin exists in Firestore adminUsers
             let adminUser = await this.getAdminById(firebaseUid);
 
             // If not found by UID, try by email
@@ -248,34 +240,23 @@ class AdminAuthService {
                 adminUser = await this.getAdminByEmail(normalizedEmail);
             }
 
-            const db = this.getDatabase();
-
-            // If admin doesn't exist in RTDB, create a new admin record
             if (!adminUser) {
-                console.log('📝 Creating new admin record in /adminUsers for:', normalizedEmail);
-
-                const adminRecord = {
-                    email: normalizedEmail,
-                    name: displayName || normalizedEmail.split('@')[0],
-                    role: 'admin',
-                    assignedUsersCount: 0,
-                    createdAt: admin.database.ServerValue.TIMESTAMP,
-                    lastSignedIn: admin.database.ServerValue.TIMESTAMP
-                };
-
-                await db.ref(`adminUsers/${firebaseUid}`).set(adminRecord);
-
-                adminUser = {
-                    id: firebaseUid,
-                    ...adminRecord,
-                    createdAt: Date.now()
-                };
-
-                console.log('✅ Admin record created in /adminUsers');
-            } else {
-                // Update last signed in
-                await db.ref(`adminUsers/${adminUser.id}/lastSignedIn`).set(admin.database.ServerValue.TIMESTAMP);
+                throw new Error('User is not authorized as an admin');
             }
+
+            // Check admin privileges
+            const hasAdminRole = adminUser.role === 'admin' || adminUser.role === 'superadmin';
+            const hasSpecialRole = adminUser.specialrole === 'superadmin';
+            
+            if (!hasAdminRole && !hasSpecialRole) {
+                throw new Error('Insufficient admin privileges');
+            }
+
+            // Update last signed in timestamp
+            const db = getFirestore();
+            await db.collection('adminUsers').doc(adminUser.id).update({
+                lastSignedIn: admin.firestore.FieldValue.serverTimestamp()
+            });
 
             // Generate JWT
             const token = this.generateToken({
@@ -292,6 +273,7 @@ class AdminAuthService {
                     email: adminUser.email,
                     name: adminUser.name,
                     role: adminUser.role,
+                    specialrole: adminUser.specialrole,
                     assignedUsersCount: adminUser.assignedUsersCount || 0,
                     createdAt: adminUser.createdAt
                 },
@@ -305,6 +287,7 @@ class AdminAuthService {
 
     /**
      * Register a new admin user
+     * Creates user in Firebase Auth and admin record in Firestore adminUsers
      * @param {Object} adminData - Admin registration data
      * @returns {Promise<Object>} Registration result
      */
@@ -342,18 +325,18 @@ class AdminAuthService {
                 throw firebaseError;
             }
 
-            // Create admin record in Firebase RTDB
-            const db = this.getDatabase();
+            // Create admin record in Firestore
+            const db = getFirestore();
             const adminRecord = {
                 email: email.toLowerCase().trim(),
                 name: name,
                 role: role,
                 assignedUsersCount: 0,
-                createdAt: admin.database.ServerValue.TIMESTAMP,
-                lastSignedIn: admin.database.ServerValue.TIMESTAMP
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastSignedIn: admin.firestore.FieldValue.serverTimestamp()
             };
 
-            await db.ref(`adminUsers/${firebaseUser.uid}`).set(adminRecord);
+            await db.collection('adminUsers').doc(firebaseUser.uid).set(adminRecord);
 
             // Generate JWT
             const token = this.generateToken({
@@ -398,12 +381,62 @@ class AdminAuthService {
                 email: adminUser.email,
                 name: adminUser.name,
                 role: adminUser.role,
+                specialrole: adminUser.specialrole,
                 assignedUsersCount: adminUser.assignedUsersCount || 0,
                 createdAt: adminUser.createdAt
             };
         } catch (error) {
             console.error('Get admin profile error:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Verify admin password using Firebase Authentication
+     * @param {string} email - Admin email
+     * @param {string} password - Password to verify
+     * @returns {Promise<boolean>} True if password is valid
+     */
+    async verifyPassword(email, password) {
+        try {
+            if (!email || !password) {
+                throw new Error('Email and password are required');
+            }
+
+            const normalizedEmail = email.toLowerCase().trim();
+            const firebaseApiKey = process.env.FIREBASE_API_KEY;
+
+            if (!firebaseApiKey) {
+                throw new Error('Firebase API Key not configured');
+            }
+
+            // Use Firebase REST API to verify credentials
+            const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;
+
+            const response = await fetch(signInUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: normalizedEmail,
+                    password: password,
+                    returnSecureToken: true
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                console.error('Password verification failed:', data.error?.message);
+                return false;
+            }
+
+            console.log('✅ Password verified for admin:', normalizedEmail);
+            return true;
+        } catch (error) {
+            console.error('Password verification error:', error);
+            return false;
         }
     }
 }

@@ -3,14 +3,19 @@ const firebaseDepositRequestService = require('../services/firebaseDepositReques
 class FirebaseDepositRequestController {
     constructor() {
         this.getDepositRequests = this.getDepositRequests.bind(this);
+        this.getDepositRequestStats = this.getDepositRequestStats.bind(this);
     }
 
     async getDepositRequests(req, res) {
         try {
             const {
-                page = 1,
-                limit = 20,
-                status = '',
+                page,
+                limit,
+                status,
+                paymentMethod,
+                search,
+                dateFrom,
+                dateTo,
                 sortBy,
                 sortOrder
             } = req.query;
@@ -19,6 +24,10 @@ class FirebaseDepositRequestController {
                 page,
                 limit,
                 status,
+                paymentMethod,
+                search,
+                dateFrom,
+                dateTo,
                 sortBy,
                 sortOrder
             });
@@ -31,7 +40,23 @@ class FirebaseDepositRequestController {
             console.error('Controller error fetching Firebase deposit requests:', error);
             res.status(500).json({
                 success: false,
-                error: 'Failed to fetch Firebase deposit requests'
+                error: error.message || 'Failed to fetch Firebase deposit requests'
+            });
+        }
+    }
+
+    async getDepositRequestStats(req, res) {
+        try {
+            const data = await firebaseDepositRequestService.getDepositRequestStats();
+            res.json({
+                success: true,
+                data
+            });
+        } catch (error) {
+            console.error('Controller error fetching Firebase deposit request stats:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to fetch deposit request stats'
             });
         }
     }

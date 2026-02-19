@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * Admin Authentication Routes
- * Uses Firebase Realtime Database /adminUsers path
+ * Uses Firestore adminUsers collection
  */
 
 /**
@@ -39,5 +39,16 @@ router.get('/me', require('../middleware/authMiddleware').authenticateToken, (re
     req.adminId = req.userId || req.user?.userId || req.user?.adminId;
     next();
 }, adminAuthController.getProfile);
+
+/**
+ * @route POST /api/admin-auth/verify-password
+ * @desc Verify admin password for sensitive operations
+ * @access Protected (requires JWT)
+ */
+router.post('/verify-password', require('../middleware/authMiddleware').authenticateToken, (req, res, next) => {
+    // Map userId to adminId for admin routes
+    req.adminId = req.userId || req.user?.userId || req.user?.adminId;
+    next();
+}, adminAuthController.verifyPassword);
 
 module.exports = router;
