@@ -127,6 +127,18 @@ const subcollectionQuerySchema = z.object({
     sortOrder: z.enum(['asc', 'desc']).optional()
 });
 
+const firebaseDepositRequestQuerySchema = z.object({
+    page: numericQuery(1, 100000),
+    limit: numericQuery(1, 1000),
+    status: optionalTrimmed(40),
+    paymentMethod: optionalTrimmed(60),
+    search: optionalTrimmed(120),
+    dateFrom: z.string().trim().max(64).optional(),
+    dateTo: z.string().trim().max(64).optional(),
+    sortBy: z.enum(['createdAt', 'date', 'updatedAt', 'amount', 'processedAt']).optional(),
+    sortOrder: z.enum(['asc', 'desc']).optional()
+});
+
 const firebaseCollectionParamsSchema = z.object({
     collection: z.string().trim().regex(/^[a-zA-Z0-9_-]+$/)
 });
@@ -272,6 +284,7 @@ module.exports = {
     userSubcollectionParamsSchema,
     userSubcollectionQuerySchema,
     subcollectionQuerySchema,
+    firebaseDepositRequestQuerySchema,
     firebaseCollectionParamsSchema,
     firebaseCollectionQuerySchema,
     agentGenerateSchema,
