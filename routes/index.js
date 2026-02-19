@@ -21,6 +21,8 @@ const adminLogsRoutes = require('./adminLogs');
 const taskWithdrawalsRoutes = require('./taskWithdrawals');
 const settingsRoutes = require('./settingsRoutes');
 const adminProfileRoutes = require('./adminProfileRoutes');
+const agentHierarchyRoutes = require('./agentHierarchyRoutes');
+const ticketRoutes = require('./ticketRoutes');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -72,6 +74,12 @@ router.use('/settings', settingsRoutes);
 
 // Admin profile routes (username, email, password, investment rates)
 router.use('/admin', adminProfileRoutes);
+
+// Agent hierarchy routes (agent upline/downline structure)
+router.use('/agent-hierarchy', agentHierarchyRoutes);
+
+// Ticket routes (support ticketing system)
+router.use('/tickets', ticketRoutes);
 
 module.exports = router;
 
