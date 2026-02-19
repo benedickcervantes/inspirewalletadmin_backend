@@ -70,10 +70,18 @@ router.use('/admin-logs', adminLogsRoutes);
 router.use('/task-withdrawals', taskWithdrawalsRoutes);
 
 // Time deposit routes (quote + shared admin-only helpers)
-router.use('/time-deposits', timeDepositRoutes);
+// TODO: Implement timeDepositRoutes
+// router.use('/time-deposits', timeDepositRoutes);
 
 // Investment rates routes (manage rate tiers in Firestore)
-router.use('/investment-rates', investmentRatesRoutes);
+// TODO: Implement investmentRatesRoutes
+// router.use('/investment-rates', investmentRatesRoutes);
+
+// Settings routes
+router.use('/settings', settingsRoutes);
+
+// Admin profile routes
+router.use('/admin-profile', adminProfileRoutes);
 
 // Agent hierarchy routes (agent upline/downline structure)
 router.use('/agent-hierarchy', agentHierarchyRoutes);
